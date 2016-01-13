@@ -29,6 +29,7 @@ simulate_poly <- function(m,s,n,runs){
 ##' @param ... Additional named arguments for run_scenario
 ##' @param use_mclapply2 use mclapply2 from package bt88.03.704 which implements a status bar (see details)
 ##' @param multicore Should multicore parallelisation be used
+##' @param drop should columns that start with \code{"result"} or \code{"select"} or  be dropped (which may have been added by \code{\link{simulate_batch}}, or \code{\link{select_results}})
 ##' @return Object with parameters and simulation results in each row
 ##' @author Florian Klinglmueller
 ##' @examples
@@ -36,7 +37,7 @@ simulate_poly <- function(m,s,n,runs){
 ##' scenarios <- expand.grid(m=c(0,1),s=c(1,2))
 ##' simulate_batch(scenarios,10000,simulate_poly,n=10)
 ##' @export
-simulate_batch <- function(scenarios,runs,run_scenario,...,use_mclapply2=FALSE,multicore=TRUE){
+simulate_batch <- function(scenarios,runs,run_scenario,...,use_mclapply2=FALSE,multicore=TRUE,drop=TRUE){
     ## Parallelization
     if(multicore) {
         require(parallel)
@@ -50,7 +51,14 @@ simulate_batch <- function(scenarios,runs,run_scenario,...,use_mclapply2=FALSE,m
         mcla  <-  lapply
     }
     params <- list(...)
-    dplyr::bind_rows(mcla(1:nrow(scenarios),function(p) c(scenarios[p,],result=do.call('run_scenario',c(runs=runs,scenarios[p,],params)))))
+    if(drop){
+        ## add sth. so we do not risk loosing everything see (https://github.com/hadley/dplyr/issues/1176)
+        scenarios$select_dummy  <- 'ff'
+        scenarios <- select(scenarios,-matches('^result|^select'))
+    }
+    out <- dplyr::bind_rows(mcla(1:nrow(scenarios),function(p) c(scenarios[p,],result=do.call('run_scenario',c(runs=runs,scenarios[p,],params)))))
+    out$result.runs  <- runs
+    out
 }
 
 ##' This function selects rows from a dataframe of simulation results. For example using the default \code{functional} \code{which.max} the rows containing the maximum of column \code{what} within values of \code{group} are selected. The function adds column with name \code{select_what} that specifies based on which columns a row was selected.
@@ -116,7 +124,10 @@ add_neighbours <- function(scenarios,parameter,radius,points,drop=T){
         scenarios <- scenarios[rep(1:.N,each=length(int[[j]]))][,eval(.c)]
     }
     out <- tbl_df(data.frame(scenarios))
-    if(drop) out <- select(out,-matches('^result|^select'))
+    if(drop){
+        out$select_dummy  <- 'ff'
+        out <- select(out,-matches('^result|^select'))
+    }
     return(out)
 }
 

@@ -188,6 +188,65 @@ See how the mean squared errors compare
 knitr::kable(mse)
 ```
 
+## Smooth estimation of the utility
+
+```{r}
+library(mgcv)
+library(rgl)
+
+G <- expand.grid(m=seq(0,1,.1),s=seq(1,2,.01))
+results1 <- simulate_batch(G,10^5,simulate_poly,n=100)
+
+model1 <- gam(result~s(m)+s(s)+te(m,s),data=results1)
+predict1 <- within(G,result.model <- predict(model1,newdata=G))
+select1 <- select_results(predict1,"s","result.model")
+candidates1 <- add_neighbours(select1,'m',.2,10)
+
+final_params0 <- select(select1,-matches('^result|^select'))
+final_results0 <- simulate_batch(final_params0,10^7,simulate_poly,n=100)
+
+results2 <- simulate_batch(candidates1,10^6,simulate_poly,n=100)
+
+combined <- {bind_rows(results1,results2) %>% ungroup() %>% mutate(result.runs=result.runs/mean(result.runs))}
+
+model2 <- gam(result~s(m)+s(s)+te(m,s),weights=result.runs,data=combined)
+predict2 <- within(candidates1,result.model <- predict(model2,newdata=candidates1))
+select2 <- select_results(predict2,"s","result.model")
+candidates2 <- add_neighbours(select2,'m',.1,10)
+
+final_params1 <- select(select2,-matches('^result|^select'))
+final_results1 <- simulate_batch(final_params1,10^7,simulate_poly,n=100)
+
+results3 <- simulate_batch(candidates2,10^7,simulate_poly,n=100)
+
+combined <- {bind_rows(results1,results2,results3) %>% ungroup() %>% mutate(result.runs=result.runs/mean(result.runs))}
+model <- gam(result~s(m)+s(s)+te(m,s),weights=result.runs,data=combined)
+predict3 <- within(candidates2,result.model <- predict(model,newdata=candidates2))
+select3 <- select_results(predict3,"s","result.model")
+candidates3 <- add_neighbours(select3,'m',.05,5)
+
+final_params2 <- select(select3,-matches('^result|^select'))
+final_results2 <- simulate_batch(final_params2,10^7,simulate_poly,n=100)
+
+update(model,data=results2)
+update(model,data=results3)
+
+refit <- function(start,model,...){
+    prediction <- 
+
+
+plot_scenarios(G,select1,candidates1,'m','s')
+lines(G$s,root_poly(G$s))
+plot_scenarios(G,select2,candidates2,'m','s')
+lines(G$s,root_poly(G$s))
+plot_scenarios(G,select3,candidates2,'m','s')
+lines(G$s,root_poly(G$s))
+
+mse$gam <- c(sqrt(mean((max-final_results0$result)^2)),sqrt(mean((max-final_results1$result)^2)),sqrt(mean((max-final_results2$result)^2)))
+
+```
+
+
 Also a quote using `>`:
 
 > "He who gives up [code] safety for [code] speed deserves neither."
