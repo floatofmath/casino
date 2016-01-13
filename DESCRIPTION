@@ -2,7 +2,16 @@ Package: casino
 Title: Utility functions for monte carlo simulation and optimization
 Version: 0.0.0.9000
 Authors@R: person("Florian", "Klinglmueller", email = "float@lefant.net", role = c("aut", "cre"))
-Description: This package provides a number of utility functions that help with the conduct of large scale simulation studies. Implemented functions include tools to run simulations in parallel, inspect simulation results, and perform stochastic optimization.
-Depends: R (>= 3.2.2)
+Description: This package provides a number of utility functions that help with
+    the conduct of large scale simulation studies. Implemented functions include
+    tools to run simulations in parallel, inspect simulation results, and perform
+    stochastic optimization.
+Depends: 
+    R (>= 3.2.2), magrittr, dplyr
+Suggests: parallel, matrixStats
 License: MIT
 LazyData: true
+RoxygenNote: 5.0.1
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

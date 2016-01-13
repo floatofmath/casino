@@ -1,0 +1,194 @@
+---
+title: "Monte Carlo Simulations and Optimization"
+author: "Florian Klinglmueller"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This package collects a number of utility functions useful for
+performing simulation studies. Especially we provide tools that
+facilitate monte carlo optimization based on simulation results.
+
+## Tools that facilitate general simulation studies
+
+The main function that helps perform simulation studies is
+`simulate_batch`. It takes a matrix/data.frame of parameter settings
+and performs a simulation for each setting. The function that performs
+the simulation for each scenario has to be supplied by the user.
+
+For example consider we want to study the Type I error
+properties of the one-sample $t$-test when observations are
+$t$-distributed. Consequently there are two parameters to consider the
+the degrees of freedom of the $t$-distribution and the number of
+observations in the experiment.
+
+We defined a corresponding function `run_scenario` that performs a
+one-sample $t$-test for a number replicate experiments drawn from the
+$t$-distribution. Importantly that function takes the number of
+replicates `runs` and all parameters of interest (`n` and `df`) as
+arguments. 
+
+```{r scenario}
+## use matrixStats to speed up computations
+library(matrixStats)
+library(casino)
+
+run_scenario <- function(n,df,runs,alpha=.025){
+    obs <- matrix(rt(n*runs,df,ncp=0),ncol=runs)
+    ## one sample t-statistic
+    tstat <- colMeans(obs)/(colSds(obs)/sqrt(n))
+    ## critical value
+    cv <- qt(alpha,n-1,lower.tail=FALSE)
+    return(mean(tstat>=cv))
+}
+
+```
+In the above example we also permit setting the significance level
+`alpha` which has a default value of `0.025`.
+
+Setting up a matrix of simulation scenarios is best achieved using the
+function `expand.grid` which creates a data frame from all
+combinations of the supplied vectors or factors.
+
+```{r set_up_scenarios}
+scenarios <- expand.grid(df=1:5,n=seq(10,100,10))
+```
+
+With that we can already run our simulation study using
+`simulate_batch`.
+
+```{r}
+simulate_batch(scenarios,1000,run_scenario)
+```
+
+## Tools to facilitate stochastic optimization
+
+Optimization problems where the utility function can only be evaluated
+with some amount of (random) error present a common problem in
+statistical research. For example we may want to evaluate the maximum
+Type I error of a new inference procedure for a range of null
+distributions. However, the size of this new procedure can not be
+evaluated analytically (or we are simply to lazy/stupid to do so). So
+we need to use simulation to assess the Type I error rate.
+
+We are confronted with two problems:
+1. In order to increase the precision of our estimate of the Type I
+error rate we need to increase the number of simulation runs.
+2. In order to increase the accuracy of the parameter value that
+maximizes the Type I error rate we need to evaluate the Type I error
+rate sufficiently close to the optimum.
+
+
+### Finding the optimum for values of a parameter of interest over the
+    range of some nuisance parameter 
+
+
+
+
+
+```{r, fig.show='hold'}
+poly <- function(m,s) 2*s*m-m^2-m^3-s
+root_poly <- function(s) (-1+ sqrt(6*s +1))/3
+G <- expand.grid(m=seq(0,1,.1),s=seq(1,2,.01))
+results1 <- simulate_batch(G,10^5,simulate_poly,n=100)
+select1 <- select_results(results1,"s",'result')
+smooth1  <- smooth_loess(select1,"m","s",20,width=10)
+
+select1 <- select_results(results1,"s",'result')
+final_params0 <- select(select1,-matches('^result|^select'))
+final_results0 <- simulate_batch(final_params0,10^7,simulate_poly,n=100)
+
+
+plot_scenarios(G,select1,smooth1,'m','s')
+points(G$s,root_poly(G$s))
+results2 <- simulate_batch(smooth1,10^6,simulate_poly,n=100)
+
+select2 <- select_results(results2,"s",'result')
+final_params1 <- select(select2,-matches('^result|^select'))
+final_results1 <- simulate_batch(final_params1,10^7,simulate_poly,n=100)
+
+select2 <- select_results(results2,"s",'result')
+smooth2  <- smooth_loess(select2,"m","s",10,width=10)
+plot_scenarios(G,select2,smooth2,'m','s')
+points(G$s,root_poly(G$s))
+results3 <- simulate_batch(smooth2,10^7,simulate_poly,n=100)
+
+select3 <- select_results(results3,"s",'result')
+final_params2 <- select(select3,-matches('^result|^select'))
+final_results2 <- simulate_batch(final_params2,10^7,simulate_poly,n=100)
+
+plot_scenarios(G,select3,smooth2,'m','s')
+points(G$s,root_poly(G$s))
+
+max <- poly(root_poly(final_results2$s),final_results2$s)
+plot(final_results2$s,max,ylim=c(-1,1),type='l')
+points(final_results0$s,final_results0$result,col='lightgray',pch=2)
+points(final_results1$s,final_results1$result,col='darkgray',pch=3)
+points(final_results2$s,final_results2$result,pch=5)
+
+mse <- data_frame(iterations=0:2,loess=NA,neighbours=NA)
+mse$loess <- c(sqrt(mean((max-final_results0$result)^2)),sqrt(mean((max-final_results1$result)^2)),sqrt(mean((max-final_results2$result)^2)))
+
+```
+
+
+```{r,fig.show='hold'}
+poly <- function(m,s) 2*s*m-m^2-m^3-s
+root_poly <- function(s) (-1+ sqrt(6*s +1))/3
+G <- expand.grid(m=seq(0,1,.1),s=seq(1,2,.01))
+results1 <- simulate_batch(G,10^5,simulate_poly,n=100)
+select1 <- select_results(results1,"s",'result')
+smooth1  <- add_neighbours(select1,"m",.25,20)
+
+select1 <- select_results(results1,"s",'result')
+final_params0 <- select(select1,-matches('^result|^select'))
+final_results0 <- simulate_batch(final_params0,10^7,simulate_poly,n=100)
+
+
+plot_scenarios(G,select1,smooth1,'m','s')
+lines(G$s,root_poly(G$s))
+results2 <- simulate_batch(smooth1,10^6,simulate_poly,n=100)
+
+select2 <- select_results(results2,"s",'result')
+final_params1 <- select(select2,-matches('^result|^select'))
+final_results1 <- simulate_batch(final_params1,10^7,simulate_poly,n=100)
+
+smooth2  <- add_neighbours(select2,"m",.125,10)
+plot_scenarios(G,select2,smooth2,'m','s')
+lines(G$s,root_poly(G$s))
+results3 <- simulate_batch(smooth2,10^7,simulate_poly,n=100)
+
+select3 <- select_results(results3,"s",'result')
+final_params2 <- select(select3,-matches('^result|^select'))
+final_results2 <- simulate_batch(final_params2,10^7,simulate_poly,n=100)
+
+plot_scenarios(G,select3,smooth2,'m','s')
+lines(G$s,root_poly(G$s))
+
+max <- poly(root_poly(final_results2$s),final_results2$s)
+plot(final_results2$s,max,ylim=c(-1,1),type='l')
+points(final_results0$s,final_results0$result,col='lightgray',pch=2)
+points(final_results1$s,final_results1$result,col='darkgray',pch=3)
+points(final_results2$s,final_results2$result,pch=5)
+
+
+
+mse$neighbours <- c(sqrt(mean((max-final_results0$result)^2)),sqrt(mean((max-final_results1$result)^2)),sqrt(mean((final_results1-final_results2$result)^2)))
+
+
+
+```
+See how the mean squared errors compare
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(mse)
+```
+
+Also a quote using `>`:
+
+> "He who gives up [code] safety for [code] speed deserves neither."
+([via](https://twitter.com/hadleywickham/status/504368538874703872))
