@@ -230,7 +230,8 @@ final_results2 <- simulate_batch(final_params2,10^7,simulate_poly,n=100)
 
 update(model,data=results2)
 update(model,data=results3)
-
+plot(model,page=1)
+## look at plot.gam how to get se for grid point selection!
 refit <- function(start,model,...){
     prediction <- 
 
