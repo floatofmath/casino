@@ -4,8 +4,8 @@
 \alias{simulate_batch}
 \title{Run a batch of simulations}
 \usage{
-simulate_batch(scenarios, runs, run_scenario, ..., use_mclapply2 = FALSE,
-  multicore = TRUE)
+simulate_batch(scenarios, runs, run_scenario, ..., drop = TRUE,
+  multicore = TRUE, use_mclapply2 = FALSE)
 }
 \arguments{
 \item{scenarios}{Object with paramter settings for \code{delta}, \code{sigma} and \code{n1} in each row}
@@ -16,9 +16,11 @@ simulate_batch(scenarios, runs, run_scenario, ..., use_mclapply2 = FALSE,
 
 \item{...}{Additional named arguments for run_scenario}
 
-\item{use_mclapply2}{use mclapply2 from package bt88.03.704 which implements a status bar (see details)}
+\item{drop}{should columns that start with \code{"result"} or \code{"select"} or  be dropped (which may have been added by \code{\link{simulate_batch}}, or \code{\link{select_results}})}
 
 \item{multicore}{Should multicore parallelisation be used}
+
+\item{use_mclapply2}{use mclapply2 from package bt88.03.704 which implements a status bar (see details)}
 }
 \value{
 Object with parameters and simulation results in each row

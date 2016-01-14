@@ -37,15 +37,13 @@ simulate_poly <- function(m,s,n,runs){
 ##' scenarios <- expand.grid(m=c(0,1),s=c(1,2))
 ##' simulate_batch(scenarios,10000,simulate_poly,n=10)
 ##' @export
-simulate_batch <- function(scenarios,runs,run_scenario,...,use_mclapply2=FALSE,multicore=TRUE,drop=TRUE){
+simulate_batch <- function(scenarios,runs,run_scenario,...,drop=TRUE,multicore=TRUE,use_mclapply2=FALSE){
     ## Parallelization
     if(multicore) {
-        require(parallel)
+        mcla <- parallel::mclapply
         if(use_mclapply2) {
-            require(bt88.03.704)
-            mcla <- mclapply2
+            mcla <- bt88.03.704::mclapply2
         }
-        mcla <- mclapply
     } 
     if(!multicore) {
         mcla  <-  lapply
